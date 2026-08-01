@@ -6,5 +6,6 @@ import java.util.UUID;
 public class TeacherAssignmentRequest {
     private Long teacherId;
     private UUID classSubjectId;
+    private UUID academicSessionId;
     private Boolean isPrimary;
 }

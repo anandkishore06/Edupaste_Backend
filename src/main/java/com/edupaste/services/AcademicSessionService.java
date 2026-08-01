@@ -35,17 +35,43 @@ public class AcademicSessionService {
     public AcademicSessionResponse create(AcademicSessionRequest request) {
         Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
         
-        if (request.getStartDate() != null && request.getEndDate() != null) {
-            if (request.getStartDate().isAfter(request.getEndDate())) {
-                throw new RuntimeException("Start date must be before end date.");
+        String trimmedName = request.getName() != null ? request.getName().trim() : "";
+        if (trimmedName.isEmpty()) {
+            throw new IllegalArgumentException("Session name is required.");
+        }
+
+        if (request.getStartDate() == null || request.getEndDate() == null) {
+            throw new IllegalArgumentException("Start date and end date are required.");
+        }
+        
+        if (request.getStartDate().isAfter(request.getEndDate())) {
+            throw new IllegalArgumentException("Start date must be before end date.");
+        }
+
+        List<AcademicSession> existingSessions = repository.findBySchoolId(schoolId);
+        
+        // Name duplicate check
+        boolean nameExists = existingSessions.stream()
+                .anyMatch(s -> s.getName().trim().equalsIgnoreCase(trimmedName));
+        if (nameExists) {
+            throw new IllegalArgumentException("An academic session named '" + trimmedName + "' already exists.");
+        }
+
+        // Duration / Date overlap check
+        for (AcademicSession s : existingSessions) {
+            if (s.getStartDate() != null && s.getEndDate() != null) {
+                boolean isOverlapping = !request.getStartDate().isAfter(s.getEndDate()) && !request.getEndDate().isBefore(s.getStartDate());
+                if (isOverlapping) {
+                    throw new IllegalArgumentException("An academic session for this duration already exists (" + s.getName() + ": " + s.getStartDate() + " to " + s.getEndDate() + ").");
+                }
             }
         }
         
-        boolean isFirst = repository.findBySchoolId(schoolId).isEmpty();
+        boolean isFirst = existingSessions.isEmpty();
         boolean shouldBeCurrent = isFirst || (request.getIsCurrent() != null && request.getIsCurrent());
         
         if (shouldBeCurrent && !isFirst) {
-            repository.findBySchoolId(schoolId).stream()
+            existingSessions.stream()
                 .filter(AcademicSession::getIsCurrent)
                 .forEach(s -> {
                     s.setIsCurrent(false);
@@ -55,7 +81,7 @@ public class AcademicSessionService {
         
         AcademicSession session = new AcademicSession();
         session.setSchoolId(schoolId);
-        session.setName(request.getName());
+        session.setName(trimmedName);
         session.setStartDate(request.getStartDate());
         session.setEndDate(request.getEndDate());
         session.setIsCurrent(shouldBeCurrent);
@@ -75,13 +101,30 @@ public class AcademicSessionService {
             throw new RuntimeException("Unauthorized");
         }
         
-        if (request.getName() != null) entity.setName(request.getName());
+        if (request.getName() != null) {
+            String trimmedName = request.getName().trim();
+            boolean nameExists = repository.findBySchoolId(schoolId).stream()
+                    .anyMatch(s -> !s.getId().equals(id) && s.getName().trim().equalsIgnoreCase(trimmedName));
+            if (nameExists) {
+                throw new IllegalArgumentException("An academic session named '" + trimmedName + "' already exists.");
+            }
+            entity.setName(trimmedName);
+        }
         if (request.getStartDate() != null) entity.setStartDate(request.getStartDate());
         if (request.getEndDate() != null) entity.setEndDate(request.getEndDate());
         
         if (entity.getStartDate() != null && entity.getEndDate() != null) {
             if (entity.getStartDate().isAfter(entity.getEndDate())) {
-                throw new RuntimeException("Start date must be before end date.");
+                throw new IllegalArgumentException("Start date must be before end date.");
+            }
+
+            for (AcademicSession s : repository.findBySchoolId(schoolId)) {
+                if (!s.getId().equals(id) && s.getStartDate() != null && s.getEndDate() != null) {
+                    boolean isOverlapping = !entity.getStartDate().isAfter(s.getEndDate()) && !entity.getEndDate().isBefore(s.getStartDate());
+                    if (isOverlapping) {
+                        throw new IllegalArgumentException("An academic session for this duration already exists (" + s.getName() + ": " + s.getStartDate() + " to " + s.getEndDate() + ").");
+                    }
+                }
             }
         }
         
@@ -97,6 +140,29 @@ public class AcademicSessionService {
 
         entity = repository.save(entity);
         return mapToResponse(entity);
+    }
+
+    @Transactional
+    public AcademicSessionResponse activate(UUID id) {
+        Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
+        AcademicSession target = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Academic session not found"));
+                
+        if (!target.getSchoolId().equals(schoolId)) {
+            throw new RuntimeException("Unauthorized");
+        }
+
+        // Deactivate all existing current sessions for this school
+        repository.findBySchoolId(schoolId).stream()
+            .filter(s -> Boolean.TRUE.equals(s.getIsCurrent()))
+            .forEach(s -> {
+                s.setIsCurrent(false);
+                repository.save(s);
+            });
+
+        target.setIsCurrent(true);
+        target = repository.save(target);
+        return mapToResponse(target);
     }
 
     public void delete(UUID id) {

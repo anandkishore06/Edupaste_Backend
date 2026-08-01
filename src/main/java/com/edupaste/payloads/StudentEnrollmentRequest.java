@@ -7,6 +7,7 @@ import java.time.LocalDate;
 public class StudentEnrollmentRequest {
     private Long studentId;
     private UUID sectionId;
+    private UUID academicSessionId;
     private LocalDate enrollmentDate;
     private String rollNumber;
 }

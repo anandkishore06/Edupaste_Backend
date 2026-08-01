@@ -58,7 +58,7 @@ public class ClassSubjectService {
         boolean exists = repository.findBySchoolId(schoolId).stream()
                 .anyMatch(c -> c.getSection().getId().equals(sec.getId()) && c.getSubject().getId().equals(sub.getId()));
         if (exists) {
-            throw new RuntimeException("This subject is already assigned to this section.");
+            throw new IllegalArgumentException("Subject '" + sub.getName() + "' is already assigned to section '" + sec.getName() + "'.");
         }
         
         cs = repository.save(cs);
@@ -78,7 +78,7 @@ public class ClassSubjectService {
 
         if (request.getSectionId() != null) {
             var sec = sectionRepository.findById(request.getSectionId())
-                .orElseThrow(() -> new RuntimeException("Section not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Section not found"));
             entity.setSection(sec);
         }
         if (request.getWeeklyPeriods() != null) entity.setWeeklyPeriods(request.getWeeklyPeriods());
@@ -86,7 +86,7 @@ public class ClassSubjectService {
 
         if (request.getSubjectId() != null) {
             var sub = subjectRepository.findById(request.getSubjectId())
-                .orElseThrow(() -> new RuntimeException("Subject not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Subject not found"));
             entity.setSubject(sub);
         }
         
@@ -97,7 +97,7 @@ public class ClassSubjectService {
             boolean exists = repository.findBySchoolId(schoolId).stream()
                 .anyMatch(c -> !c.getId().equals(id) && c.getSection().getId().equals(currentSectionId) && c.getSubject().getId().equals(currentSubjectId));
             if (exists) {
-                throw new RuntimeException("This subject is already assigned to this section.");
+                throw new IllegalArgumentException("Subject '" + entity.getSubject().getName() + "' is already assigned to section '" + entity.getSection().getName() + "'.");
             }
         }
 
@@ -119,14 +119,21 @@ public class ClassSubjectService {
         repository.delete(entity);
     }
 
-private ClassSubjectResponse mapToResponse(ClassSubject cs) {
+    private ClassSubjectResponse mapToResponse(ClassSubject cs) {
         ClassSubjectResponse res = new ClassSubjectResponse();
         res.setId(cs.getId());
         res.setSectionId(cs.getSection().getId());
         res.setSectionName(cs.getSection().getName());
-        res.setClassName(cs.getSection().getSchoolClass().getName());
-        res.setSubjectId(cs.getSubject().getId());
-        res.setSubjectName(cs.getSubject().getName());
+        if (cs.getSection().getSchoolClass() != null) {
+            res.setClassName(cs.getSection().getSchoolClass().getName());
+        }
+        if (cs.getSubject() != null) {
+            res.setSubjectId(cs.getSubject().getId());
+            res.setSubjectName(cs.getSubject().getName());
+            res.setSubjectCode(cs.getSubject().getSubjectCode());
+            String type = cs.getSubject().getType();
+            res.setSubjectType(type != null && !type.isBlank() ? type : "THEORY");
+        }
         res.setWeeklyPeriods(cs.getWeeklyPeriods());
         res.setIsMandatory(cs.getIsMandatory());
         return res;

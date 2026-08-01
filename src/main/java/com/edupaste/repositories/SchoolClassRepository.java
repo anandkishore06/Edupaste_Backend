@@ -12,5 +12,6 @@ import java.util.UUID;
 @Repository
 public interface SchoolClassRepository extends JpaRepository<SchoolClass, UUID> {
     List<SchoolClass> findBySchoolId(Long schoolId);
-    Page<SchoolClass> findBySchoolId(Long schoolId, Pageable pageable);
+    List<SchoolClass> findBySchoolIdOrderByNameAsc(Long schoolId);
+    Page<SchoolClass> findBySchoolIdOrderByNameAsc(Long schoolId, Pageable pageable);
 }
