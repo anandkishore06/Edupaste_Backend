@@ -22,10 +22,11 @@ public class StudentEnrollmentController {
     @GetMapping
     @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'SCHOOL_ADMIN', 'TEACHER')")
     public ResponseEntity<?> getAll(
+            @RequestParam(required = false) UUID sessionId,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int limit
     ) {
-        Page<StudentEnrollmentResponse> pagedData = service.getAll(PageRequest.of(page - 1, limit));
+        Page<StudentEnrollmentResponse> pagedData = service.getAll(sessionId, PageRequest.of(page - 1, limit));
         return ResponseEntity.ok(new PagedResponse<>(
                 pagedData.getContent(), page, limit, pagedData.getTotalElements(), pagedData.getTotalPages()
         ));

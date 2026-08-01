@@ -56,6 +56,15 @@ public class AcademicSessionController {
         return ResponseEntity.ok(response);
     }
 
+    @PutMapping("/{id}/activate")
+    @PreAuthorize("hasAnyAuthority('SCHOOL_ADMIN')")
+    public ResponseEntity<?> activate(@PathVariable UUID id) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("data", service.activate(id));
+        return ResponseEntity.ok(response);
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('SCHOOL_ADMIN')")
     public ResponseEntity<?> delete(@PathVariable UUID id) {

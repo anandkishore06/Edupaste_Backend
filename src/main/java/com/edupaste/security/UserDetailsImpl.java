@@ -10,6 +10,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 @Getter
 @AllArgsConstructor
@@ -31,17 +32,31 @@ public class UserDetailsImpl implements UserDetails {
     
     private Long schoolId;
 
+    public Long getSchoolId() {
+        if (this.schoolId == null && !"SUPER_ADMIN".equalsIgnoreCase(this.role)) {
+            return this.id != null ? this.id : 1L;
+        }
+        return this.schoolId;
+    }
+
     public static UserDetailsImpl build(User user) {
-        GrantedAuthority authority = new SimpleGrantedAuthority(user.getRole().name());
+        List<GrantedAuthority> authorities = new java.util.ArrayList<>();
+        authorities.add(new SimpleGrantedAuthority(user.getRole().name()));
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+
+        Long assignedSchoolId = user.getSchoolId();
+        if (assignedSchoolId == null && user.getRole() != com.edupaste.models.Role.SUPER_ADMIN) {
+            assignedSchoolId = user.getId() != null ? user.getId() : 1L;
+        }
 
         return new UserDetailsImpl(
                 user.getId(),
                 user.getFullName(),
                 user.getEmail(),
                 user.getPassword(),
-                Collections.singletonList(authority),
+                authorities,
                 user.getRole().name(),
-                user.getSchoolId());
+                assignedSchoolId);
     }
 
     @Override

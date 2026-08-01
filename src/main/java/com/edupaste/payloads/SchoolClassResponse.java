@@ -6,5 +6,4 @@ public class SchoolClassResponse {
     private UUID id;
     private String name;
     private String description;
-    private Integer displayOrder;
 }

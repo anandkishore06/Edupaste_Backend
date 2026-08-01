@@ -24,18 +24,21 @@ public class ClassSubjectController {
     @GetMapping
     @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'SCHOOL_ADMIN', 'TEACHER', 'STUDENT', 'PARENT')")
     public ResponseEntity<?> getAll(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int limit
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer limit
     ) {
-        Page<com.edupaste.payloads.ClassSubjectResponse> pagedData = service.getAll(PageRequest.of(page - 1, limit));
-        PagedResponse<com.edupaste.payloads.ClassSubjectResponse> response = new PagedResponse<>(
-                pagedData.getContent(),
-                page,
-                limit,
-                pagedData.getTotalElements(),
-                pagedData.getTotalPages()
-        );
-        return ResponseEntity.ok(response);
+        if (page != null && limit != null) {
+            Page<com.edupaste.payloads.ClassSubjectResponse> pagedData = service.getAll(PageRequest.of(page - 1, limit));
+            PagedResponse<com.edupaste.payloads.ClassSubjectResponse> response = new PagedResponse<>(
+                    pagedData.getContent(),
+                    page,
+                    limit,
+                    pagedData.getTotalElements(),
+                    pagedData.getTotalPages()
+            );
+            return ResponseEntity.ok(response);
+        }
+        return ResponseEntity.ok(service.getAll());
     }
 
     @PostMapping

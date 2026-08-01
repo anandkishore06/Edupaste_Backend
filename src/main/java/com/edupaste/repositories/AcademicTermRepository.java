@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 
 @Repository
 public interface AcademicTermRepository extends JpaRepository<AcademicTerm, UUID> {
+    List<AcademicTerm> findBySchoolId(Long schoolId);
     Page<AcademicTerm> findBySchoolId(Long schoolId, Pageable pageable);
     List<AcademicTerm> findBySchoolIdAndSessionId(Long schoolId, UUID sessionId);
 }

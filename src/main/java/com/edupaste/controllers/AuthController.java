@@ -87,6 +87,12 @@ public class AuthController {
         }
 
         user.setRole(role);
+        
+        if (role != Role.SUPER_ADMIN && user.getSchoolId() == null) {
+            Long maxSchoolId = userRepository.findMaxSchoolId();
+            user.setSchoolId((maxSchoolId != null ? maxSchoolId : 1L) + 1L);
+        }
+
         userRepository.save(user);
 
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
