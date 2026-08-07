@@ -7,8 +7,9 @@ import java.util.UUID;
 @Data
 public class StudentEnrollmentResponse {
     private UUID id;
-    private Long studentId;
+    private UUID studentId;
     private String studentName;
+    private UUID classId;
     private UUID sectionId;
     private String className;
     private String sectionName;
@@ -16,4 +17,5 @@ public class StudentEnrollmentResponse {
     private String academicSessionName;
     private LocalDate enrollmentDate;
     private String rollNumber;
+    private String enrollmentStatus;
 }

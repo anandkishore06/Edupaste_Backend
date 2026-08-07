@@ -9,12 +9,15 @@ import com.edupaste.repositories.StudentRepository;
 import com.edupaste.repositories.SectionRepository;
 import com.edupaste.repositories.UserRepository;
 import com.edupaste.repositories.AcademicSessionRepository;
+import com.edupaste.repositories.SchoolClassRepository;
+import com.edupaste.models.SchoolClass;
 import com.edupaste.security.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.util.StringUtils;
 import java.util.UUID;
 
 @Service
@@ -25,15 +28,18 @@ public class StudentEnrollmentService {
     @Autowired private UserRepository userRepository;
     @Autowired private StudentRepository studentRepository;
     @Autowired private AcademicSessionRepository sessionRepository;
+    @Autowired private SchoolClassRepository classRepository;
 
     public Page<StudentEnrollmentResponse> getAll(UUID sessionId, Pageable pageable) {
         Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
+        if (schoolId == null) {
+            if (sessionId != null) {
+                return repository.findByAcademicSessionId(sessionId, pageable).map(this::mapToResponse);
+            }
+            return repository.findAll(pageable).map(this::mapToResponse);
+        }
         if (sessionId != null) {
             return repository.findBySchoolIdAndAcademicSessionId(schoolId, sessionId, pageable).map(this::mapToResponse);
-        }
-        var activeSessionOpt = sessionRepository.findBySchoolIdAndIsCurrentTrue(schoolId);
-        if (activeSessionOpt.isPresent()) {
-            return repository.findBySchoolIdAndAcademicSessionId(schoolId, activeSessionOpt.get().getId(), pageable).map(this::mapToResponse);
         }
         return repository.findBySchoolId(schoolId, pageable).map(this::mapToResponse);
     }
@@ -43,7 +49,7 @@ public class StudentEnrollmentService {
 
         var section = sectionRepository.findById(request.getSectionId())
                 .orElseThrow(() -> new IllegalArgumentException("Section not found"));
-        var studentUser = userRepository.findById(request.getStudentId())
+        var student = studentRepository.findById(request.getStudentId())
                 .orElseThrow(() -> new IllegalArgumentException("Student not found"));
 
         AcademicSession targetSession = null;
@@ -56,41 +62,41 @@ public class StudentEnrollmentService {
             targetSession = sessionRepository.findBySchoolIdAndIsCurrentTrue(schoolId).orElse(null);
         }
 
+        SchoolClass classEntity = null;
+        if (request.getClassId() != null) {
+            classEntity = classRepository.findById(request.getClassId())
+                    .orElseThrow(() -> new IllegalArgumentException("Class not found"));
+        } else if (section.getSchoolClass() != null) {
+            classEntity = section.getSchoolClass();
+        }
+
         if (targetSession != null) {
-            final UUID targetSessId = targetSession.getId();
-            boolean existsInSession = repository.findBySchoolIdAndStudentId(schoolId, request.getStudentId()).stream()
-                    .anyMatch(e -> {
-                        UUID sId = e.getAcademicSession() != null ? e.getAcademicSession().getId() :
-                                   (e.getSection() != null && e.getSection().getSchoolClass() != null && e.getSection().getSchoolClass().getSession() != null ? e.getSection().getSchoolClass().getSession().getId() : null);
-                        return targetSessId.equals(sId);
-                    });
+            boolean existsInSession = repository.existsBySchoolIdAndStudentIdAndAcademicSessionId(schoolId, student.getId(), targetSession.getId());
             if (existsInSession) {
                 throw new IllegalArgumentException("This student is already enrolled in a section for the selected academic session.");
             }
         }
 
+        if (StringUtils.hasText(request.getRollNumber()) && targetSession != null && classEntity != null) {
+            boolean rollExists = repository.existsBySchoolIdAndAcademicSessionIdAndSchoolClassIdAndSectionIdAndRollNumber(
+                schoolId, targetSession.getId(), classEntity.getId(), section.getId(), request.getRollNumber().trim()
+            );
+            if (rollExists) {
+                throw new IllegalArgumentException("Roll number '" + request.getRollNumber() + "' is already assigned in this section.");
+            }
+        }
+
         StudentEnrollment enr = new StudentEnrollment();
         enr.setSchoolId(schoolId);
-        enr.setStudent(studentUser);
+        enr.setStudent(student);
         enr.setSection(section);
+        enr.setSchoolClass(classEntity);
         enr.setAcademicSession(targetSession);
-        if (request.getEnrollmentDate() != null) enr.setEnrollmentDate(request.getEnrollmentDate());
+        enr.setEnrollmentDate(request.getEnrollmentDate() != null ? request.getEnrollmentDate() : java.time.LocalDate.now());
         if (request.getRollNumber() != null) enr.setRollNumber(request.getRollNumber());
+        enr.setEnrollmentStatus(StringUtils.hasText(request.getEnrollmentStatus()) ? request.getEnrollmentStatus() : "ACTIVE");
 
         StudentEnrollment saved = repository.save(enr);
-
-        // Sync with Student entity directly
-        studentRepository.findBySchoolIdAndUserId(schoolId, studentUser.getId()).ifPresent(studentEntity -> {
-            if (section.getSchoolClass() != null) {
-                studentEntity.setSchoolClass(section.getSchoolClass());
-            }
-            studentEntity.setSection(section);
-            if (request.getRollNumber() != null) {
-                studentEntity.setRollNumber(request.getRollNumber());
-            }
-            studentRepository.save(studentEntity);
-        });
-
         return mapToResponse(saved);
     }
 
@@ -99,9 +105,11 @@ public class StudentEnrollmentService {
         var entity = repository.findById(id).orElseThrow(() -> new IllegalArgumentException("Record not found"));
         if (!entity.getSchoolId().equals(schoolId)) throw new IllegalArgumentException("Unauthorized");
 
-        Long targetStudentId = request.getStudentId() != null ? request.getStudentId() : entity.getStudent().getId();
-        UUID targetSectionId = request.getSectionId() != null ? request.getSectionId() : entity.getSection().getId();
+        UUID targetStudentId = request.getStudentId() != null ? request.getStudentId() : entity.getStudent().getId();
+        var student = studentRepository.findById(targetStudentId)
+                .orElseThrow(() -> new IllegalArgumentException("Student not found"));
 
+        UUID targetSectionId = request.getSectionId() != null ? request.getSectionId() : entity.getSection().getId();
         var section = sectionRepository.findById(targetSectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Section not found"));
 
@@ -115,46 +123,42 @@ public class StudentEnrollmentService {
             targetSession = section.getSchoolClass().getSession();
         }
 
+        SchoolClass classEntity = null;
+        UUID targetClassId = request.getClassId() != null ? request.getClassId() : (entity.getSchoolClass() != null ? entity.getSchoolClass().getId() : null);
+        if (targetClassId != null) {
+            classEntity = classRepository.findById(targetClassId)
+                    .orElseThrow(() -> new IllegalArgumentException("Class not found"));
+        } else if (section.getSchoolClass() != null) {
+            classEntity = section.getSchoolClass();
+        }
+
         if (targetSession != null) {
-            final UUID targetSessId = targetSession.getId();
-            boolean existsInSession = repository.findBySchoolIdAndStudentId(schoolId, targetStudentId).stream()
-                    .anyMatch(e -> !e.getId().equals(id) && targetSessId.equals(
-                        e.getAcademicSession() != null ? e.getAcademicSession().getId() :
-                        (e.getSection() != null && e.getSection().getSchoolClass() != null && e.getSection().getSchoolClass().getSession() != null ? e.getSection().getSchoolClass().getSession().getId() : null)
-                    ));
+            boolean existsInSession = repository.existsBySchoolIdAndStudentIdAndAcademicSessionIdAndIdNot(schoolId, student.getId(), targetSession.getId(), id);
             if (existsInSession) {
                 throw new IllegalArgumentException("This student is already enrolled in a section for the selected academic session.");
             }
         }
 
-        if (request.getStudentId() != null) {
-             var studentUser = userRepository.findById(request.getStudentId())
-                .orElseThrow(() -> new IllegalArgumentException("Student not found"));
-             entity.setStudent(studentUser);
+        if (StringUtils.hasText(request.getRollNumber()) && targetSession != null && classEntity != null) {
+            boolean rollExists = repository.existsBySchoolIdAndAcademicSessionIdAndSchoolClassIdAndSectionIdAndRollNumberAndIdNot(
+                schoolId, targetSession.getId(), classEntity.getId(), section.getId(), request.getRollNumber().trim(), id
+            );
+            if (rollExists) {
+                throw new IllegalArgumentException("Roll number '" + request.getRollNumber() + "' is already assigned in this section.");
+            }
         }
+
+        entity.setStudent(student);
         entity.setSection(section);
+        entity.setSchoolClass(classEntity);
         if (targetSession != null) {
             entity.setAcademicSession(targetSession);
         }
         if (request.getEnrollmentDate() != null) entity.setEnrollmentDate(request.getEnrollmentDate());
         if (request.getRollNumber() != null) entity.setRollNumber(request.getRollNumber());
+        if (request.getEnrollmentStatus() != null) entity.setEnrollmentStatus(request.getEnrollmentStatus());
 
         StudentEnrollment saved = repository.save(entity);
-
-        // Sync with Student entity directly
-        if (saved.getStudent() != null) {
-            studentRepository.findBySchoolIdAndUserId(schoolId, saved.getStudent().getId()).ifPresent(studentEntity -> {
-                if (saved.getSection() != null && saved.getSection().getSchoolClass() != null) {
-                    studentEntity.setSchoolClass(saved.getSection().getSchoolClass());
-                    studentEntity.setSection(saved.getSection());
-                }
-                if (saved.getRollNumber() != null) {
-                    studentEntity.setRollNumber(saved.getRollNumber());
-                }
-                studentRepository.save(studentEntity);
-            });
-        }
-        
         return mapToResponse(saved);
     }
 
@@ -162,15 +166,6 @@ public class StudentEnrollmentService {
         Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
         var entity = repository.findById(id).orElseThrow(() -> new RuntimeException("Record not found"));
         if (!entity.getSchoolId().equals(schoolId)) throw new RuntimeException("Unauthorized");
-
-        if (entity.getStudent() != null) {
-            studentRepository.findBySchoolIdAndUserId(schoolId, entity.getStudent().getId()).ifPresent(studentEntity -> {
-                studentEntity.setSchoolClass(null);
-                studentEntity.setSection(null);
-                studentEntity.setRollNumber(null);
-                studentRepository.save(studentEntity);
-            });
-        }
 
         repository.delete(entity);
     }
@@ -182,15 +177,21 @@ public class StudentEnrollmentService {
             res.setStudentId(se.getStudent().getId());
             res.setStudentName(se.getStudent().getFullName());
         }
+        if (se.getSchoolClass() != null) {
+            res.setClassId(se.getSchoolClass().getId());
+            res.setClassName(se.getSchoolClass().getName());
+        }
         if (se.getSection() != null) {
             res.setSectionId(se.getSection().getId());
             res.setSectionName(se.getSection().getName());
-            if (se.getSection().getSchoolClass() != null) {
+            if (se.getSchoolClass() == null && se.getSection().getSchoolClass() != null) {
+                res.setClassId(se.getSection().getSchoolClass().getId());
                 res.setClassName(se.getSection().getSchoolClass().getName());
             }
         }
         res.setEnrollmentDate(se.getEnrollmentDate());
         res.setRollNumber(se.getRollNumber());
+        res.setEnrollmentStatus(se.getEnrollmentStatus());
 
         if (se.getAcademicSession() != null) {
             res.setAcademicSessionId(se.getAcademicSession().getId());

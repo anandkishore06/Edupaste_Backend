@@ -13,4 +13,5 @@ import java.util.UUID;
 public interface SectionRepository extends JpaRepository<Section, UUID> {
     List<Section> findBySchoolId(Long schoolId);
     Page<Section> findBySchoolId(Long schoolId, Pageable pageable);
+    List<Section> findBySchoolClassId(UUID schoolClassId);
 }

@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -40,23 +41,55 @@ public class StudentService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    public Page<StudentResponse> getAll(Pageable pageable) {
-        Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
-        List<Student> students = repository.findBySchoolId(schoolId);
-        
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), students.size());
-        List<StudentResponse> pageContent = students.subList(Math.max(0, Math.min(start, students.size())), Math.max(0, Math.min(end, students.size())))
-                .stream().map(this::mapToResponse).collect(Collectors.toList());
+    @Autowired
+    private AcademicSessionRepository academicSessionRepository;
 
-        return new PageImpl<>(pageContent, pageable, students.size());
+    public Page<StudentResponse> getAll(UUID sessionId, Pageable pageable) {
+        Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
+        List<Student> students = (schoolId == null) ? repository.findAll() : repository.findBySchoolId(schoolId);
+        
+        List<StudentResponse> list = students.stream()
+                .map(s -> mapToResponse(s, sessionId))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), list.size());
+        List<StudentResponse> pageContent = list.subList(Math.max(0, Math.min(start, list.size())), Math.max(0, Math.min(end, list.size())));
+
+        return new PageImpl<>(pageContent, pageable, list.size());
+    }
+
+    public List<StudentResponse> getAll(UUID sessionId) {
+        Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
+        List<Student> students = (schoolId == null) ? repository.findAll() : repository.findBySchoolId(schoolId);
+        return students.stream()
+                .map(s -> mapToResponse(s, sessionId))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    public Page<StudentResponse> getAll(Pageable pageable) {
+        return getAll((UUID) null, pageable);
     }
 
     public List<StudentResponse> getAll() {
-        Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
-        return repository.findBySchoolId(schoolId).stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return getAll((UUID) null);
+    }
+
+    private UUID getEffectiveSessionId(Long schoolId, UUID requestedSessionId) {
+        if (requestedSessionId != null) {
+            return requestedSessionId;
+        }
+        if (schoolId != null) {
+            return academicSessionRepository.findBySchoolIdAndIsCurrentTrue(schoolId)
+                    .map(AcademicSession::getId)
+                    .orElse(null);
+        }
+        return academicSessionRepository.findAll().stream()
+                .filter(s -> Boolean.TRUE.equals(s.getIsCurrent()))
+                .map(AcademicSession::getId)
+                .findFirst().orElse(null);
     }
 
     public StudentResponse getById(UUID id) {
@@ -102,23 +135,18 @@ public class StudentService {
             parent = parentRepository.findById(request.getParentId()).orElse(null);
         }
 
-        SchoolClass schoolClass = null;
-        if (request.getClassId() != null) {
-            schoolClass = classRepository.findById(request.getClassId()).orElse(null);
-        }
-
-        Section section = null;
-        if (request.getSectionId() != null) {
-            section = sectionRepository.findById(request.getSectionId()).orElse(null);
+        AcademicSession admissionSession = null;
+        if (request.getAdmissionSessionId() != null) {
+            admissionSession = academicSessionRepository.findById(request.getAdmissionSessionId()).orElse(null);
         }
 
         Student student = Student.builder()
                 .user(user)
                 .parent(parent)
-                .schoolClass(schoolClass)
-                .section(section)
                 .admissionNumber(admissionNumber)
-                .rollNumber(request.getRollNumber() != null ? request.getRollNumber().trim() : null)
+                .admissionDate(request.getAdmissionDate() != null ? request.getAdmissionDate() : java.time.LocalDate.now())
+                .admissionSession(admissionSession)
+                .photo(request.getPhoto())
                 .firstName(request.getFirstName().trim())
                 .lastName(request.getLastName().trim())
                 .gender(request.getGender())
@@ -162,18 +190,12 @@ public class StudentService {
             parent = parentRepository.findById(request.getParentId()).orElse(null);
         }
 
-        SchoolClass schoolClass = null;
-        if (request.getClassId() != null) {
-            schoolClass = classRepository.findById(request.getClassId()).orElse(null);
-        }
-
-        Section section = null;
-        if (request.getSectionId() != null) {
-            section = sectionRepository.findById(request.getSectionId()).orElse(null);
+        AcademicSession admissionSession = null;
+        if (request.getAdmissionSessionId() != null) {
+            admissionSession = academicSessionRepository.findById(request.getAdmissionSessionId()).orElse(null);
         }
 
         student.setAdmissionNumber(admissionNumber);
-        student.setRollNumber(request.getRollNumber() != null ? request.getRollNumber().trim() : null);
         student.setFirstName(request.getFirstName().trim());
         student.setLastName(request.getLastName().trim());
         student.setGender(request.getGender());
@@ -183,8 +205,13 @@ public class StudentService {
         student.setMobile(request.getMobile());
         student.setAddress(request.getAddress());
         student.setParent(parent);
-        student.setSchoolClass(schoolClass);
-        student.setSection(section);
+        student.setPhoto(request.getPhoto());
+        if (request.getAdmissionDate() != null) {
+            student.setAdmissionDate(request.getAdmissionDate());
+        }
+        if (admissionSession != null) {
+            student.setAdmissionSession(admissionSession);
+        }
 
         if (StringUtils.hasText(request.getStatus())) {
             student.setStatus(request.getStatus());
@@ -222,6 +249,10 @@ public class StudentService {
     private StudentEnrollmentRepository studentEnrollmentRepository;
 
     private StudentResponse mapToResponse(Student s) {
+        return mapToResponse(s, null);
+    }
+
+    private StudentResponse mapToResponse(Student s, UUID targetSessionId) {
         StudentResponse res = new StudentResponse();
         res.setId(s.getId());
         res.setUserId(s.getUser() != null ? s.getUser().getId() : null);
@@ -235,6 +266,12 @@ public class StudentService {
         res.setEmail(s.getEmail());
         res.setMobile(s.getMobile());
         res.setAddress(s.getAddress());
+        res.setAdmissionDate(s.getAdmissionDate());
+        res.setPhoto(s.getPhoto());
+        if (s.getAdmissionSession() != null) {
+            res.setAdmissionSessionId(s.getAdmissionSession().getId());
+            res.setAdmissionSessionName(s.getAdmissionSession().getName());
+        }
 
         if (s.getParent() != null) {
             res.setParentId(s.getParent().getId());
@@ -250,35 +287,41 @@ public class StudentService {
         String sectionName = null;
         String rollNumber = "N/A";
 
-        if (s.getUser() != null) {
-            List<StudentEnrollment> enrollments = studentEnrollmentRepository.findBySchoolIdAndStudentId(s.getSchoolId(), s.getUser().getId());
-            if (!enrollments.isEmpty()) {
-                StudentEnrollment activeEnr = enrollments.get(0);
-                if (activeEnr.getSection() != null) {
-                    res.setSectionId(activeEnr.getSection().getId());
-                    sectionName = activeEnr.getSection().getName();
-                    if (activeEnr.getSection().getSchoolClass() != null) {
-                        res.setClassId(activeEnr.getSection().getSchoolClass().getId());
-                        className = activeEnr.getSection().getSchoolClass().getName();
-                    }
+        boolean hasExplicitEnrollment = false;
+        boolean matchesTargetSession = false;
+
+        List<StudentEnrollment> enrollments = studentEnrollmentRepository.findBySchoolIdAndStudentId(s.getSchoolId(), s.getId());
+        StudentEnrollment matchedEnr = null;
+
+        if (targetSessionId != null && !enrollments.isEmpty()) {
+            matchedEnr = enrollments.stream()
+                    .filter(e -> (e.getAcademicSession() != null && targetSessionId.equals(e.getAcademicSession().getId())) ||
+                                 (e.getSection() != null && e.getSection().getSchoolClass() != null && e.getSection().getSchoolClass().getSession() != null && targetSessionId.equals(e.getSection().getSchoolClass().getSession().getId())))
+                    .findFirst().orElse(null);
+        }
+
+        if (targetSessionId == null && !enrollments.isEmpty()) {
+            matchedEnr = enrollments.get(0);
+        }
+
+        if (matchedEnr != null) {
+            hasExplicitEnrollment = true;
+            matchesTargetSession = true;
+            if (matchedEnr.getSection() != null) {
+                res.setSectionId(matchedEnr.getSection().getId());
+                sectionName = matchedEnr.getSection().getName();
+                if (matchedEnr.getSection().getSchoolClass() != null) {
+                    res.setClassId(matchedEnr.getSection().getSchoolClass().getId());
+                    className = matchedEnr.getSection().getSchoolClass().getName();
                 }
-                if (StringUtils.hasText(activeEnr.getRollNumber())) {
-                    rollNumber = activeEnr.getRollNumber();
-                }
+            }
+            if (StringUtils.hasText(matchedEnr.getRollNumber())) {
+                rollNumber = matchedEnr.getRollNumber();
             }
         }
 
-        // Fallback if not found in enrollment but saved in Student entity
-        if ("Not Enrolled".equals(className) && s.getSchoolClass() != null) {
-            res.setClassId(s.getSchoolClass().getId());
-            className = s.getSchoolClass().getName();
-        }
-        if (sectionName == null && s.getSection() != null) {
-            res.setSectionId(s.getSection().getId());
-            sectionName = s.getSection().getName();
-        }
-        if ("N/A".equals(rollNumber) && StringUtils.hasText(s.getRollNumber())) {
-            rollNumber = s.getRollNumber();
+        if (targetSessionId != null && !matchesTargetSession) {
+            return null;
         }
 
         res.setClassName(className);

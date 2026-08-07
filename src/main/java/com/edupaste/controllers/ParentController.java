@@ -25,13 +25,14 @@ public class ParentController {
     @GetMapping
     @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'SCHOOL_ADMIN', 'TEACHER')")
     public ResponseEntity<?> getAll(
+            @RequestParam(required = false) UUID sessionId,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
         if (page != null && size != null) {
-            Page<ParentResponse> result = parentService.getAll(PageRequest.of(page, size));
+            Page<ParentResponse> result = parentService.getAll(sessionId, PageRequest.of(page, size));
             return ResponseEntity.ok(result);
         }
-        List<ParentResponse> list = parentService.getAll();
+        List<ParentResponse> list = parentService.getAll(sessionId);
         return ResponseEntity.ok(list);
     }
 

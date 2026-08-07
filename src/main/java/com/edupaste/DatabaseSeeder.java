@@ -8,9 +8,6 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
-import java.util.List;
-
 @Component
 public class DatabaseSeeder implements CommandLineRunner {
 
@@ -47,7 +44,6 @@ public class DatabaseSeeder implements CommandLineRunner {
         user.setPassword(passwordEncoder.encode(password));
         user.setRole(role);
         
-        // Ensure test users have a default schoolId to test Academic endpoints
         if (role != Role.SUPER_ADMIN) {
             user.setSchoolId(1L);
         }

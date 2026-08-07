@@ -20,6 +20,7 @@ public class AcademicTerm extends BaseEntity {
     @Column(nullable = false, length = 100)
     private String name;
 
+    @Builder.Default
     @Column(name = "display_order")
     private Integer displayOrder = 0;
 

@@ -21,6 +21,10 @@ public class StudentResponse {
     private String email;
     private String mobile;
     private String address;
+    private LocalDate admissionDate;
+    private UUID admissionSessionId;
+    private String admissionSessionName;
+    private String photo;
 
     private UUID parentId;
     private String parentName;

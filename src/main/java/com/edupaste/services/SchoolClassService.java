@@ -27,7 +27,7 @@ public class SchoolClassService {
 
     public Page<SchoolClassResponse> getAll(Pageable pageable) {
         Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
-        List<SchoolClass> classes = repository.findBySchoolId(schoolId);
+        List<SchoolClass> classes = (schoolId == null) ? repository.findAll() : repository.findBySchoolId(schoolId);
         classes.sort(this::compareClasses);
         
         int start = (int) pageable.getOffset();
@@ -40,7 +40,7 @@ public class SchoolClassService {
 
     public List<SchoolClassResponse> getAll() {
         Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
-        List<SchoolClass> classes = repository.findBySchoolId(schoolId);
+        List<SchoolClass> classes = (schoolId == null) ? repository.findAll() : repository.findBySchoolId(schoolId);
         classes.sort(this::compareClasses);
         return classes.stream().map(this::mapToResponse).collect(Collectors.toList());
     }

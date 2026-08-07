@@ -68,9 +68,15 @@ public class AcademicSessionController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('SCHOOL_ADMIN')")
     public ResponseEntity<?> delete(@PathVariable UUID id) {
-        service.delete(id);
         Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        return ResponseEntity.ok(response);
+        try {
+            service.delete(id);
+            response.put("success", true);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", e.getMessage() != null ? e.getMessage() : "Failed to delete academic session.");
+            return ResponseEntity.badRequest().body(response);
+        }
     }
 }

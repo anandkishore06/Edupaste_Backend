@@ -9,9 +9,12 @@ public class ParentRequest {
     private String fatherName;
     private String motherName;
     private String guardianName;
+    private String guardianRelation;
 
-    @NotBlank(message = "Phone number is required")
-    private String phone;
+    @NotBlank(message = "Mobile number is required")
+    private String mobile;
+
+    private String alternateMobile;
 
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
@@ -19,6 +22,10 @@ public class ParentRequest {
 
     private String occupation;
     private String address;
+    private String city;
+    private String state;
+    private String country;
+    private String postalCode;
     private String status;
     private String password;
 }

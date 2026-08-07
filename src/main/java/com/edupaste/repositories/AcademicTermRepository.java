@@ -15,4 +15,6 @@ public interface AcademicTermRepository extends JpaRepository<AcademicTerm, UUID
     List<AcademicTerm> findBySchoolId(Long schoolId);
     Page<AcademicTerm> findBySchoolId(Long schoolId, Pageable pageable);
     List<AcademicTerm> findBySchoolIdAndSessionId(Long schoolId, UUID sessionId);
+    List<AcademicTerm> findBySessionId(UUID sessionId);
+    void deleteBySessionId(UUID sessionId);
 }

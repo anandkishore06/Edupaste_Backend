@@ -25,13 +25,14 @@ public class StudentController {
     @GetMapping
     @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'SCHOOL_ADMIN', 'TEACHER')")
     public ResponseEntity<?> getAll(
+            @RequestParam(required = false) UUID sessionId,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
         if (page != null && size != null) {
-            Page<StudentResponse> result = studentService.getAll(PageRequest.of(page, size));
+            Page<StudentResponse> result = studentService.getAll(sessionId, PageRequest.of(page, size));
             return ResponseEntity.ok(result);
         }
-        List<StudentResponse> list = studentService.getAll();
+        List<StudentResponse> list = studentService.getAll(sessionId);
         return ResponseEntity.ok(list);
     }
 

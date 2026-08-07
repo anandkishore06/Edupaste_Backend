@@ -36,7 +36,7 @@ public class TeacherService {
 
     public Page<TeacherResponse> getAll(Pageable pageable) {
         Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
-        List<Teacher> teachers = repository.findBySchoolId(schoolId);
+        List<Teacher> teachers = (schoolId == null) ? repository.findAll() : repository.findBySchoolId(schoolId);
         
         int start = (int) pageable.getOffset();
         int end = Math.min((start + pageable.getPageSize()), teachers.size());
@@ -48,7 +48,8 @@ public class TeacherService {
 
     public List<TeacherResponse> getAll() {
         Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
-        return repository.findBySchoolId(schoolId).stream()
+        List<Teacher> teachers = (schoolId == null) ? repository.findAll() : repository.findBySchoolId(schoolId);
+        return teachers.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
