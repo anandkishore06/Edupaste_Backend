@@ -32,12 +32,16 @@ public class ClassSubjectService {
 
     public Page<ClassSubjectResponse> getAll(Pageable pageable) {
         Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
+        if (schoolId == null) {
+            return repository.findAll(pageable).map(this::mapToResponse);
+        }
         return repository.findBySchoolId(schoolId, pageable).map(this::mapToResponse);
     }
 
     public List<ClassSubjectResponse> getAll() {
         Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
-        return repository.findBySchoolId(schoolId).stream().map(this::mapToResponse).collect(Collectors.toList());
+        List<ClassSubject> classSubjects = (schoolId == null) ? repository.findAll() : repository.findBySchoolId(schoolId);
+        return classSubjects.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
     public ClassSubjectResponse create(ClassSubjectRequest request) {

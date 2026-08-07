@@ -22,6 +22,7 @@ public class AcademicSession extends BaseEntity {
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
+    @Builder.Default
     @Column(name = "is_current")
     private Boolean isCurrent = false;
 

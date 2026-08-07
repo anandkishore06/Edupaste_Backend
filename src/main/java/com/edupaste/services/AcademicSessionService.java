@@ -21,6 +21,9 @@ public class AcademicSessionService {
     @Autowired
     private AcademicSessionRepository repository;
 
+    @Autowired
+    private com.edupaste.repositories.AcademicTermRepository termRepository;
+
     public Page<AcademicSessionResponse> getAll(Pageable pageable) {
         Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
         return repository.findBySchoolId(schoolId, pageable).map(this::mapToResponse);
@@ -165,16 +168,27 @@ public class AcademicSessionService {
         return mapToResponse(target);
     }
 
+    @Transactional
     public void delete(UUID id) {
         Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
         var entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Record not found"));
                 
-        if (!entity.getSchoolId().equals(schoolId)) {
+        if (schoolId != null && !entity.getSchoolId().equals(schoolId)) {
             throw new RuntimeException("Unauthorized");
         }
+
+        if (Boolean.TRUE.equals(entity.getIsCurrent())) {
+            throw new IllegalArgumentException("Cannot delete the active academic session. Please set another session as active first.");
+        }
         
-        repository.delete(entity);
+        try {
+            termRepository.deleteBySessionId(id);
+            repository.delete(entity);
+            repository.flush();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Cannot delete session because it has linked classes, enrollments, or teacher assignments.");
+        }
     }
 
 private AcademicSessionResponse mapToResponse(AcademicSession session) {

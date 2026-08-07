@@ -11,8 +11,6 @@ public class StudentRequest {
     @NotBlank(message = "Admission number is required")
     private String admissionNumber;
 
-    private String rollNumber;
-
     @NotBlank(message = "First name is required")
     private String firstName;
 
@@ -27,8 +25,9 @@ public class StudentRequest {
     private String address;
 
     private UUID parentId;
-    private UUID classId;
-    private UUID sectionId;
+    private LocalDate admissionDate;
+    private UUID admissionSessionId;
+    private String photo;
 
     private String status;
     private String password;

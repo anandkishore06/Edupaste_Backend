@@ -23,12 +23,14 @@ public class TeacherAssignmentService {
 
     public Page<TeacherAssignmentResponse> getAll(UUID sessionId, Pageable pageable) {
         Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
+        if (schoolId == null) {
+            if (sessionId != null) {
+                return repository.findByAcademicSessionId(sessionId, pageable).map(this::mapToResponse);
+            }
+            return repository.findAll(pageable).map(this::mapToResponse);
+        }
         if (sessionId != null) {
             return repository.findBySchoolIdAndAcademicSessionId(schoolId, sessionId, pageable).map(this::mapToResponse);
-        }
-        var activeSessionOpt = sessionRepository.findBySchoolIdAndIsCurrentTrue(schoolId);
-        if (activeSessionOpt.isPresent()) {
-            return repository.findBySchoolIdAndAcademicSessionId(schoolId, activeSessionOpt.get().getId(), pageable).map(this::mapToResponse);
         }
         return repository.findBySchoolId(schoolId, pageable).map(this::mapToResponse);
     }

@@ -22,19 +22,21 @@ public class Student extends BaseEntity {
     @JoinColumn(name = "parent_id")
     private Parent parent;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "class_id")
-    private SchoolClass schoolClass;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "section_id")
-    private Section section;
-
     @Column(name = "admission_number", nullable = false, length = 50)
     private String admissionNumber;
 
-    @Column(name = "roll_number", length = 50)
-    private String rollNumber;
+    @Column(name = "enrollment_id", unique = true, length = 50)
+    private String enrollmentId;
+
+    @Column(name = "admission_date")
+    private LocalDate admissionDate;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "admission_session_id")
+    private AcademicSession admissionSession;
+
+    @Column(name = "photo", columnDefinition = "TEXT")
+    private String photo;
 
     @Column(name = "first_name", nullable = false, length = 50)
     private String firstName;

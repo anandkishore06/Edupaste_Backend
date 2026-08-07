@@ -20,6 +20,10 @@ public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssign
     @Query("SELECT ta FROM TeacherAssignment ta WHERE ta.schoolId = :schoolId AND " +
            "(ta.academicSession.id = :sessionId OR (ta.academicSession IS NULL AND ta.classSubject.section.schoolClass.session.id = :sessionId))")
     Page<TeacherAssignment> findBySchoolIdAndAcademicSessionId(@Param("schoolId") Long schoolId, @Param("sessionId") UUID sessionId, Pageable pageable);
+
+    @Query("SELECT ta FROM TeacherAssignment ta WHERE " +
+           "(ta.academicSession.id = :sessionId OR (ta.academicSession IS NULL AND ta.classSubject.section.schoolClass.session.id = :sessionId))")
+    Page<TeacherAssignment> findByAcademicSessionId(@Param("sessionId") UUID sessionId, Pageable pageable);
     List<TeacherAssignment> findBySchoolIdAndTeacherId(Long schoolId, Long teacherId);
     List<TeacherAssignment> findBySchoolIdAndClassSubjectId(Long schoolId, UUID classSubjectId);
     boolean existsBySchoolIdAndTeacherIdAndClassSubjectId(Long schoolId, Long teacherId, UUID classSubjectId);

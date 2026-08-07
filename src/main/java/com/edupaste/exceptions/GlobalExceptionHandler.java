@@ -3,14 +3,29 @@ package com.edupaste.exceptions;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import java.util.HashMap;
 import java.util.Map;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
+
+    // Let Spring Security handle its own exceptions — do NOT swallow them as 400
+    @ExceptionHandler(AccessDeniedException.class)
+    public void handleAccessDeniedException(AccessDeniedException ex) throws AccessDeniedException {
+        throw ex;
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public void handleAuthenticationException(AuthenticationException ex) throws AuthenticationException {
+        throw ex;
+    }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<?> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
@@ -37,8 +52,25 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<?> handleResponseStatusException(ResponseStatusException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("message", ex.getReason());
+        return new ResponseEntity<>(response, ex.getStatusCode());
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<?> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("message", "Invalid request payload: " + ex.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<?> handleRuntimeException(RuntimeException ex) {
+        ex.printStackTrace(); // Log the actual exception for debugging
         Map<String, Object> response = new HashMap<>();
         response.put("success", false);
         response.put("message", ex.getMessage());

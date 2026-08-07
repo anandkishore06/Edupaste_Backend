@@ -15,14 +15,32 @@ public class ParentResponse {
     private String fatherName;
     private String motherName;
     private String guardianName;
+    private String guardianRelation;
     private String primaryContactName;
-    private String phone;
+    private String mobile;
+    private String alternateMobile;
     private String email;
     private String occupation;
     private String address;
+    private String city;
+    private String state;
+    private String country;
+    private String postalCode;
     private String status;
     private List<ChildSummary> children;
     private LocalDateTime createdAt;
+
+    // Flat Child Details for individual row per child display
+    private UUID childId;
+    private String childName;
+    private String admissionNumber;
+    private UUID classId;
+    private String className;
+    private UUID sectionId;
+    private String sectionName;
+    private String rollNumber;
+    private UUID academicSessionId;
+    private String academicSessionName;
 
     @Data
     @AllArgsConstructor

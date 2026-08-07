@@ -18,11 +18,18 @@ public class StudentEnrollment extends BaseEntity {
     private Section section;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "class_id")
+    private SchoolClass schoolClass;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false)
-    private User student;
+    private Student student;
 
     @Column(name = "roll_number", length = 50)
     private String rollNumber;
+
+    @Column(name = "enrollment_id", length = 50)
+    private String enrollmentId;
 
     @Column(name = "enrollment_date", nullable = false)
     private LocalDate enrollmentDate;
@@ -30,4 +37,8 @@ public class StudentEnrollment extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "academic_session_id")
     private AcademicSession academicSession;
+
+    @Column(name = "enrollment_status", length = 20)
+    @Builder.Default
+    private String enrollmentStatus = "ACTIVE";
 }

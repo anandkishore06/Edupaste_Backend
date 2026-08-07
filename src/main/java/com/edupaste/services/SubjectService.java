@@ -22,12 +22,16 @@ public class SubjectService {
 
     public Page<SubjectResponse> getAll(Pageable pageable) {
         Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
+        if (schoolId == null) {
+            return repository.findAll(pageable).map(this::mapToResponse);
+        }
         return repository.findBySchoolId(schoolId, pageable).map(this::mapToResponse);
     }
 
     public List<SubjectResponse> getAll() {
         Long schoolId = SecurityUtils.getCurrentUserDetails().getSchoolId();
-        return repository.findBySchoolId(schoolId).stream().map(this::mapToResponse).collect(Collectors.toList());
+        List<Subject> subjects = (schoolId == null) ? repository.findAll() : repository.findBySchoolId(schoolId);
+        return subjects.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
     public SubjectResponse create(SubjectRequest request) {
