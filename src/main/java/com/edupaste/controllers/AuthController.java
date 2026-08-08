@@ -55,7 +55,8 @@ public class AuthController {
                 userDetails.getId(),
                 userDetails.getEmail(),
                 userDetails.getFullName(),
-                userDetails.getRole()));
+                userDetails.getRole(),
+                userDetails.getMustResetPassword()));
     }
 
     @PostMapping("/register")
@@ -87,6 +88,7 @@ public class AuthController {
         }
 
         user.setRole(role);
+        user.setMustResetPassword(role != Role.SUPER_ADMIN);
         
         if (role != Role.SUPER_ADMIN && user.getSchoolId() == null) {
             Long maxSchoolId = userRepository.findMaxSchoolId();

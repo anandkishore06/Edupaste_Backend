@@ -42,12 +42,33 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                if (userDetails instanceof UserDetailsImpl customUser && Boolean.TRUE.equals(customUser.getMustResetPassword())) {
+                    String uri = request.getRequestURI();
+                    if (!isAllowedUriForResetPending(uri)) {
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"status\":403,\"error\":\"MANDATORY_PASSWORD_RESET_REQUIRED\",\"message\":\"Mandatory first-time password reset must be completed before accessing protected application APIs.\"}");
+                        return;
+                    }
+                }
             }
         } catch (Exception e) {
             logger.error("Cannot set user authentication: {}", e.getMessage());
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isAllowedUriForResetPending(String uri) {
+        if (uri == null) return true;
+        return uri.startsWith("/api/auth/") ||
+                uri.startsWith("/api/v1/auth/mandatory-reset/") ||
+                uri.startsWith("/api/v1/auth/forgot-password/") ||
+                uri.startsWith("/api/v1/public/") ||
+                uri.startsWith("/ws-admission/") ||
+                uri.startsWith("/v3/api-docs") ||
+                uri.startsWith("/swagger-ui");
     }
 
     private String parseJwt(HttpServletRequest request) {

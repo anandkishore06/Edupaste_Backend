@@ -41,6 +41,22 @@ public class TeacherController {
         return ResponseEntity.ok(teacherService.getById(id));
     }
 
+    @Autowired
+    private com.edupaste.services.ProfilePdfService profilePdfService;
+
+    @GetMapping("/{id}/profile/pdf")
+    @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'SCHOOL_ADMIN')")
+    public ResponseEntity<byte[]> downloadProfilePdf(@PathVariable UUID id) {
+        TeacherResponse teacher = teacherService.getById(id);
+        byte[] pdfBytes = profilePdfService.generateTeacherProfilePdf(id);
+        String safeName = teacher.getFullName() != null ? teacher.getFullName().replaceAll("[^a-zA-Z0-9_]", "_") : "Teacher";
+
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Teacher_" + safeName + "_Profile.pdf\"")
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .body(pdfBytes);
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<TeacherResponse> create(@Valid @RequestBody TeacherRequest request) {

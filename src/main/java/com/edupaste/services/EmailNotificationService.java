@@ -306,6 +306,88 @@ public class EmailNotificationService implements NotificationService {
             return "FAILED: " + errorMsg;
         }
     }
+
+    @Override
+    public String sendPasswordResetOtpEmail(String toEmail, String recipientName, String otpCode, int expiryMinutes) {
+        String subject = "Your Password Reset Verification Code - EduPaste";
+        String safeName = recipientName != null && !recipientName.trim().isEmpty() ? recipientName.trim() : "User";
+
+        String textContent = String.format(
+                "Dear %s,\n\n" +
+                "Your verification code for resetting your EduPaste account password is: %s\n\n" +
+                "This code will expire in %d minutes.\n\n" +
+                "For security reasons, do not share this code with anyone.\n\n" +
+                "If you did not request a password reset, please ignore this email or contact support immediately.\n\n" +
+                "Warm regards,\nEduPaste Security Team",
+                safeName, otpCode, expiryMinutes
+        );
+
+        String htmlContent = String.format(
+                "<!DOCTYPE html>" +
+                "<html>" +
+                "<head><style>" +
+                "body { font-family: 'SF Pro Text', Helvetica, Arial, sans-serif; background-color: #f5f5f7; color: #1d1d1f; margin: 0; padding: 20px; }" +
+                ".container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e5e5e7; }" +
+                ".header { border-bottom: 1px solid #f0f0f2; padding-bottom: 16px; margin-bottom: 20px; }" +
+                ".badge { background-color: #e3f2fd; color: #0071e3; font-weight: bold; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }" +
+                ".otp-box { background-color: #f5f5f7; border-left: 4px solid #0071e3; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center; }" +
+                ".otp-code { font-size: 32px; font-weight: bold; color: #0071e3; letter-spacing: 6px; font-family: monospace; }" +
+                ".warning { font-size: 13px; color: #d32f2f; background: #ffebee; padding: 10px 14px; border-radius: 6px; margin-top: 16px; }" +
+                ".footer { margin-top: 32px; font-size: 12px; color: #86868b; border-top: 1px solid #f0f0f2; padding-top: 16px; }" +
+                "</style></head>" +
+                "<body>" +
+                "<div class='container'>" +
+                "<div class='header'>" +
+                "<span class='badge'>Security Verification</span>" +
+                "<h2 style='margin: 8px 0 0 0; color: #1d1d1f;'>Password Reset Request</h2>" +
+                "</div>" +
+                "<p>Dear <strong>%s</strong>,</p>" +
+                "<p>We received a request to reset your EduPaste account password. Please use the verification code below to proceed:</p>" +
+                "<div class='otp-box'>" +
+                "<div class='otp-code'>%s</div>" +
+                "<p style='margin: 8px 0 0 0; font-size: 13px; color: #86868b;'>Valid for <strong>%d minutes</strong></p>" +
+                "</div>" +
+                "<div class='warning'><strong>Security Warning:</strong> Never share this code with anyone. EduPaste support will never ask for your verification code.</div>" +
+                "<div class='footer'>" +
+                "<p>This is an automated notification from EduPaste Security. If you did not request a password reset, please ignore this message.</p>" +
+                "</div>" +
+                "</div>" +
+                "</body>" +
+                "</html>",
+                safeName, otpCode, expiryMinutes
+        );
+
+        logger.info("Password Reset OTP Attempt -> To: {}, Subject: {}", toEmail, subject);
+
+        boolean isConfigured = mailSender != null && mailUsername != null && !mailUsername.trim().isEmpty();
+
+        if (!isConfigured) {
+            String note = "Gmail SMTP credentials not configured. OTP [" + otpCode + "] logged to console.";
+            logger.warn(note);
+            saveNotificationLog(toEmail, subject, null, "FAILED", note, null);
+            return "LOGGED_ONLY";
+        }
+
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            helper.setFrom(mailUsername, "EduPaste Security");
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(textContent, htmlContent);
+
+            mailSender.send(mimeMessage);
+
+            logger.info("Password reset OTP email successfully sent to {}", toEmail);
+            saveNotificationLog(toEmail, subject, null, "SENT", null, LocalDateTime.now());
+            return "SUCCESS";
+        } catch (Exception e) {
+            String errorMsg = "SMTP Dispatch Error: " + (e.getMessage() != null ? e.getMessage() : e.toString());
+            logger.error("Failed to send password reset OTP email to {}: {}", toEmail, errorMsg);
+            saveNotificationLog(toEmail, subject, null, "FAILED", errorMsg, null);
+            return "FAILED: " + errorMsg;
+        }
+    }
     private void saveNotificationLog(String recipient, String subject, String applicationNumber, String status, String errorMessage, LocalDateTime sentAt) {
         try {
             NotificationLog log = NotificationLog.builder()

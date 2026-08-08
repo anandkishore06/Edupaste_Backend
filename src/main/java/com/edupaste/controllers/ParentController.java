@@ -42,6 +42,22 @@ public class ParentController {
         return ResponseEntity.ok(parentService.getById(id));
     }
 
+    @Autowired
+    private com.edupaste.services.ProfilePdfService profilePdfService;
+
+    @GetMapping("/{id}/profile/pdf")
+    @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'SCHOOL_ADMIN')")
+    public ResponseEntity<byte[]> downloadProfilePdf(@PathVariable UUID id) {
+        ParentResponse parent = parentService.getById(id);
+        byte[] pdfBytes = profilePdfService.generateParentProfilePdf(id);
+        String safeName = parent.getPrimaryContactName() != null ? parent.getPrimaryContactName().replaceAll("[^a-zA-Z0-9_]", "_") : "Parent";
+
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Parent_" + safeName + "_Profile.pdf\"")
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .body(pdfBytes);
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<ParentResponse> create(@Valid @RequestBody ParentRequest request) {

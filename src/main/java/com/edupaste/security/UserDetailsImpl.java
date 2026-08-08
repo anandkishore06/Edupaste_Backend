@@ -32,6 +32,8 @@ public class UserDetailsImpl implements UserDetails {
     
     private Long schoolId;
 
+    private Boolean mustResetPassword;
+
     public Long getSchoolId() {
         if (this.schoolId == null && !"SUPER_ADMIN".equalsIgnoreCase(this.role)) {
             return this.id != null ? this.id : 1L;
@@ -56,7 +58,8 @@ public class UserDetailsImpl implements UserDetails {
                 user.getPassword(),
                 authorities,
                 user.getRole().name(),
-                assignedSchoolId);
+                assignedSchoolId,
+                Boolean.TRUE.equals(user.getMustResetPassword()));
     }
 
     @Override

@@ -36,6 +36,10 @@ public class User {
     @Column(name = "school_id")
     private Long schoolId;
     
+    @Builder.Default
+    @Column(name = "must_reset_password", nullable = false)
+    private Boolean mustResetPassword = true;
+    
     @CreationTimestamp
     @Column(updatable = false, name = "created_at")
     private LocalDateTime createdAt;
